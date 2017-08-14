@@ -16,7 +16,8 @@ import java.util.List;
 public class Basic extends BaseSeimiCrawler {
     @Override
     public String[] startUrls() {
-        return new String[]{"http://www.cnblogs.com/"};
+        //两个是测试去重的
+        return new String[]{"http://www.cnblogs.com/","http://www.cnblogs.com/"};
     }
 
     @Override

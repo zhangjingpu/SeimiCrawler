@@ -1,9 +1,26 @@
+/*
+   Copyright 2015 Wang Haomiao<et.tw@163.com>
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+ */
 package cn.wanghaomiao.seimi.def;
 
 import cn.wanghaomiao.seimi.annotation.Queue;
 import cn.wanghaomiao.seimi.core.SeimiQueue;
 import cn.wanghaomiao.seimi.struct.Request;
+import cn.wanghaomiao.seimi.utils.GenericUtils;
 import com.alibaba.fastjson.JSON;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,6 +29,7 @@ import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 
+import javax.annotation.PostConstruct;
 import java.util.List;
 
 /**
@@ -40,22 +58,30 @@ public class DefaultRedisQueue implements SeimiQueue {
     private int port;
     @Value("${redis.password:}")
     private String password;
-    private String quueName = "SEIMI_CRAWLER_QUEUE_";
+    private String quueNamePrefix = "SEIMI_CRAWLER_QUEUE_";
+    private String setNamePrefix = "SEIMI_CRAWLER_SET_";
     private JedisPool wpool = null;
     private Logger logger = LoggerFactory.getLogger(getClass());
+
+    @PostConstruct
+    public void init(){
+        getWritePool();
+    }
+
     public void refresh(){
         if (wpool!=null){
             this.wpool.destroy();
             this.wpool = null;
         }
     }
-    public JedisPool getWritePool() {
+
+    public synchronized JedisPool getWritePool() {
         if (wpool == null) {
             JedisPoolConfig config = new JedisPoolConfig();
-            config.setMaxTotal(500);
-            config.setMaxIdle(200);
-            config.setMinIdle(100);
-            config.setMaxWaitMillis(1000 * 100);
+            config.setMaxTotal(50);
+            config.setMaxIdle(20);
+            config.setMinIdle(10);
+            config.setMaxWaitMillis(1000 * 20);
             logger.info("create redisPool host={},port={}",this.host,this.port);
             if (StringUtils.isNotBlank(password)){
                 wpool = new JedisPool(config, this.host, this.port, 0, password);
@@ -75,10 +101,10 @@ public class DefaultRedisQueue implements SeimiQueue {
         Request request = null;
         try {
             jedis = getWClient();
-            List<String> res = jedis.brpop(0,quueName+crawlerName);
+            List<String> res = jedis.brpop(0, quueNamePrefix +crawlerName);
             request = JSON.parseObject(res.get(1),Request.class);
         }catch (Exception e){
-            logger.warn(e.getMessage());
+            logger.warn(e.getMessage(),e);
             refresh();
         }finally {
             if (jedis!=null){
@@ -94,7 +120,7 @@ public class DefaultRedisQueue implements SeimiQueue {
         boolean res = false;
         try {
             jedis = getWClient();
-            res = jedis.lpush(quueName+req.getCrawlerName(),JSON.toJSONString(req))>0;
+            res = jedis.lpush(quueNamePrefix +req.getCrawlerName(),JSON.toJSONString(req))>0;
         }catch (Exception e){
             logger.warn(e.getMessage());
             refresh();
@@ -107,12 +133,12 @@ public class DefaultRedisQueue implements SeimiQueue {
     }
 
     @Override
-    public int len(String crawlerName) {
+    public long len(String crawlerName) {
         long len = 0;
         Jedis jedis = null;
         try {
             jedis = getWClient();
-            len = jedis.llen(quueName+crawlerName);
+            len = jedis.llen(quueNamePrefix +crawlerName);
         }catch (Exception e){
             logger.warn(e.getMessage());
             refresh();
@@ -121,7 +147,61 @@ public class DefaultRedisQueue implements SeimiQueue {
                 jedis.close();
             }
         }
-        return (int) len;
+        return len;
+    }
+
+    @Override
+    public boolean isProcessed(Request req) {
+        Jedis jedis = null;
+        boolean res = false;
+        try {
+            jedis = getWClient();
+            String sign = GenericUtils.signRequest(req);
+            res = jedis.sismember(setNamePrefix +req.getCrawlerName(),sign);
+        }catch (Exception e){
+            logger.warn(e.getMessage());
+            refresh();
+        }finally {
+            if (jedis!=null){
+                jedis.close();
+            }
+        }
+        return res;
+    }
+
+    @Override
+    public void addProcessed(Request req) {
+        Jedis jedis = null;
+        try {
+            jedis = getWClient();
+            String sign = DigestUtils.md5Hex(req.getUrl());
+            jedis.sadd(setNamePrefix +req.getCrawlerName(),sign);
+        }catch (Exception e){
+            logger.warn(e.getMessage());
+            refresh();
+        }finally {
+            if (jedis!=null){
+                jedis.close();
+            }
+        }
+    }
+
+    @Override
+    public long totalCrawled(String crawlerName) {
+        long count = 0;
+        Jedis jedis = null;
+        try {
+            jedis = getWClient();
+            count = jedis.scard(setNamePrefix + crawlerName);
+        }catch (Exception e){
+            logger.warn(e.getMessage());
+            refresh();
+        }finally {
+            if (jedis!=null){
+                jedis.close();
+            }
+        }
+        return count;
     }
 
     public String getHost() {
@@ -148,11 +228,11 @@ public class DefaultRedisQueue implements SeimiQueue {
         this.password = password;
     }
 
-    public String getQuueName() {
-        return quueName;
+    public String getQuueNamePrefix() {
+        return quueNamePrefix;
     }
 
-    public void setQuueName(String quueName) {
-        this.quueName = quueName;
+    public void setQuueNamePrefix(String quueNamePrefix) {
+        this.quueNamePrefix = quueNamePrefix;
     }
 }

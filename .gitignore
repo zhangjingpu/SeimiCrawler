@@ -11,3 +11,5 @@
 bin
 build
 target
+.idea
+*.log

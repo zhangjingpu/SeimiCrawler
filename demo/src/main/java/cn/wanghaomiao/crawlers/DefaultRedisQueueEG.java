@@ -1,10 +1,8 @@
 package cn.wanghaomiao.crawlers;
 
-import cn.wanghaomiao.seimi.annotation.Crawler;
+import cn.wanghaomiao.seimi.def.BaseSeimiCrawler;
 import cn.wanghaomiao.seimi.struct.Request;
 import cn.wanghaomiao.seimi.struct.Response;
-import cn.wanghaomiao.seimi.def.BaseSeimiCrawler;
-import cn.wanghaomiao.seimi.def.DefaultRedisQueue;
 import cn.wanghaomiao.xpath.model.JXDocument;
 
 import java.util.List;
@@ -15,7 +13,7 @@ import java.util.List;
  * @since 2015/10/21.
  */
 //需要使用时打开注释
-//@Crawler(name = "DefRedis",queue = DefaultRedisQueue.class)
+//@Crawler(name = "DefRedis",queue = DefaultRedisQueue.class,useUnrepeated = false)
 public class DefaultRedisQueueEG extends BaseSeimiCrawler {
     @Override
     public String[] startUrls() {

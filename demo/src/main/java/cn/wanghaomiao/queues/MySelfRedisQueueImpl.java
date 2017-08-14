@@ -86,7 +86,7 @@ public class MySelfRedisQueueImpl implements SeimiQueue {
     }
 
     @Override
-    public int len(String crawlerName) {
+    public long len(String crawlerName) {
         long len = 0;
         Jedis jedis = null;
         try {
@@ -99,7 +99,22 @@ public class MySelfRedisQueueImpl implements SeimiQueue {
                 jedis.close();
             }
         }
-        return (int) len;
+        return len;
+    }
+
+    @Override
+    public boolean isProcessed(Request req) {
+        return false;
+    }
+
+    @Override
+    public void addProcessed(Request req) {
+        logger.info("{}",req);
+    }
+
+    @Override
+    public long totalCrawled(String crawlerName) {
+        return -1;
     }
 
     public String getHost() {

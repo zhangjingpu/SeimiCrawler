@@ -1,4 +1,19 @@
-package cn.wanghaomiao.seimi.http;
+/*
+   Copyright 2015 Wang Haomiao<et.tw@163.com>
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+ */
+package cn.wanghaomiao.seimi.http.hc;
 
 import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
@@ -9,6 +24,8 @@ import org.apache.http.conn.ssl.SSLContextBuilder;
 import org.apache.http.conn.ssl.TrustStrategy;
 import org.apache.http.conn.ssl.X509HostnameVerifier;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLException;
@@ -19,14 +36,15 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
 /**
- * @author 汪浩淼 [et.tw@163.com]
- *         Date: 2014/11/13.
+ * @author 汪浩淼 et.tw@163.com
+ * @since 2016/6/27.
  */
-public class HttpClientConnectionManagerProvider {
-    private static class HCConnectionManagerProvicerHolder{
-        public static PoolingHttpClientConnectionManager poolingHttpClientConnectionManager = null;
-        public HCConnectionManagerProvicerHolder() throws Exception {
-            SSLContextBuilder builder = new SSLContextBuilder();
+public class HttpClientCMPBox {
+    public PoolingHttpClientConnectionManager poolingHttpClientConnectionManager = null;
+
+    public HttpClientCMPBox() {
+        SSLContextBuilder builder = new SSLContextBuilder();
+        try {
             builder.loadTrustMaterial(null, new TrustStrategy() {
                 @Override
                 public boolean isTrusted(X509Certificate[] chain, String authType)
@@ -64,9 +82,13 @@ public class HttpClientConnectionManagerProvider {
             poolingHttpClientConnectionManager = new PoolingHttpClientConnectionManager(registry);
             poolingHttpClientConnectionManager.setMaxTotal(500);
             poolingHttpClientConnectionManager.setDefaultMaxPerRoute(1000);
+        } catch (Exception e) {
+            Logger logger = LoggerFactory.getLogger(getClass());
+            logger.error("init fail,err={}",e.getMessage(),e);
         }
+
     }
-    public static PoolingHttpClientConnectionManager getHcPoolInstance(){
-        return HCConnectionManagerProvicerHolder.poolingHttpClientConnectionManager;
+    public PoolingHttpClientConnectionManager instance(){
+        return this.poolingHttpClientConnectionManager;
     }
 }

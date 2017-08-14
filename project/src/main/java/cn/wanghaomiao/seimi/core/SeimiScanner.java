@@ -1,10 +1,24 @@
+/*
+   Copyright 2015 Wang Haomiao<et.tw@163.com>
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+ */
 package cn.wanghaomiao.seimi.core;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
@@ -33,7 +47,11 @@ public class SeimiScanner {
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private static final String RESOURCE_PATTERN = "**/%s/**/*.class";
     private ResourcePatternResolver resourcePatternResolver = new PathMatchingResourcePatternResolver();
-    private AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(ScanConfig.class);
+    private AnnotationConfigApplicationContext context;
+
+    public SeimiScanner(AnnotationConfigApplicationContext context){
+        this.context = context;
+    }
 
     @SafeVarargs
     public final Set<Class<?>> scan(String[] confPkgs, Class<? extends Annotation>... annotationTags){
@@ -55,9 +73,7 @@ public class SeimiScanner {
                             MetadataReader reader = readerFactory.getMetadataReader(resource);
                             String className = reader.getClassMetadata().getClassName();
                             if (ifMatchesEntityType(reader, readerFactory,typeFilters)) {
-                                //不使用class.forName()
                                 Class<?> curClass = Thread.currentThread().getContextClassLoader().loadClass(className);
-                                context.register(curClass);
                                 resClazzSet.add(curClass);
                             }
                         }
@@ -67,10 +83,16 @@ public class SeimiScanner {
                 }
             }
         }
+        return resClazzSet;
+    }
+
+    public void regist(List<Class<?>> classList){
+        for (Class cls:classList){
+            context.register(cls);
+        }
         if (!context.isActive()){
             context.refresh();
         }
-        return resClazzSet;
     }
 
     /**
@@ -92,9 +114,5 @@ public class SeimiScanner {
             }
         }
         return false;
-    }
-
-    public ApplicationContext getContext(){
-        return this.context;
     }
 }
